@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -53,6 +53,17 @@ export default function Home() {
   // Layout state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [mobileView, setMobileView] = useState<MobileView>("sources")
+
+  // Check for URL parameters on mount (e.g., from trends page)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const topicParam = urlParams.get('topic')
+    if (topicParam) {
+      setTopic(decodeURIComponent(topicParam))
+      // Clear the URL parameter to keep URL clean
+      window.history.replaceState({}, '', '/')
+    }
+  }, [])
 
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -653,6 +664,7 @@ ${generatedScript}
                       onDownloadScript={downloadScript}
                       onExportMarkdown={exportAsMarkdown}
                       topic={researchResult.query}
+                      researchSources={researchResult.sources}
                     />
                   )}
                 </div>
@@ -713,6 +725,7 @@ ${generatedScript}
                           onDownloadScript={downloadScript}
                           onExportMarkdown={exportAsMarkdown}
                           topic={researchResult.query}
+                          researchSources={researchResult.sources}
                         />
                       </div>
                     </div>

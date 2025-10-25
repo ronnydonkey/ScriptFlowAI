@@ -1,10 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScriptVersion, ScriptOptions, ResearchSource } from "@/lib/types"
 import { REFINEMENT_SUGGESTIONS } from "@/lib/prompts/refinement-prompts"
+import { exportContent, copyToClipboard, downloadAsFile, ExportFormat } from "@/lib/formatters/content-formatters"
 
 interface ScriptDisplayProps {
   generatedScript: string
@@ -26,6 +28,7 @@ interface ScriptDisplayProps {
   onDownloadScript: () => void
   onExportMarkdown: () => void
   topic?: string
+  researchSources?: ResearchSource[]
 }
 
 export function ScriptDisplay({
@@ -48,7 +51,105 @@ export function ScriptDisplay({
   onDownloadScript,
   onExportMarkdown,
   topic,
+  researchSources,
 }: ScriptDisplayProps) {
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const [exportStatus, setExportStatus] = useState<string | null>(null)
+  const [isGeneratingExport, setIsGeneratingExport] = useState(false)
+
+  const handleExport = async (format: ExportFormat) => {
+    if (format === 'youtube') {
+      // Original script - just copy
+      const success = await copyToClipboard(generatedScript)
+      setExportStatus(success ? 'Copied YouTube script!' : 'Failed to copy')
+      setTimeout(() => setExportStatus(null), 3000)
+      setShowExportMenu(false)
+      return
+    }
+
+    // Generate platform-specific content using AI
+    setIsGeneratingExport(true)
+    setExportStatus(`Generating ${format} content...`)
+
+    try {
+      const response = await fetch('/api/generate-platform', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: format,
+          topic: topic || 'Generated Content',
+          sources: researchSources || [],
+          youtubeScript: generatedScript,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate content')
+      }
+
+      const data = await response.json()
+      const success = await copyToClipboard(data.content)
+
+      if (success) {
+        setExportStatus(`✓ Copied ${format} content to clipboard!`)
+      } else {
+        setExportStatus('Failed to copy')
+      }
+    } catch (error: any) {
+      console.error('Export error:', error)
+      setExportStatus(`Failed: ${error.message}`)
+    } finally {
+      setIsGeneratingExport(false)
+      setTimeout(() => setExportStatus(null), 5000)
+      setShowExportMenu(false)
+    }
+  }
+
+  const handleDownloadExport = async (format: ExportFormat) => {
+    if (format === 'youtube') {
+      // Original script - just download
+      const filename = topic ? topic.substring(0, 50).replace(/[^a-z0-9]/gi, '-') : 'script'
+      downloadAsFile(generatedScript, filename, format)
+      setExportStatus('Downloaded YouTube script!')
+      setTimeout(() => setExportStatus(null), 3000)
+      setShowExportMenu(false)
+      return
+    }
+
+    // Generate platform-specific content
+    setIsGeneratingExport(true)
+    setExportStatus(`Generating ${format} content...`)
+
+    try {
+      const response = await fetch('/api/generate-platform', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: format,
+          topic: topic || 'Generated Content',
+          sources: researchSources || [],
+          youtubeScript: generatedScript,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate content')
+      }
+
+      const data = await response.json()
+      const filename = topic ? topic.substring(0, 50).replace(/[^a-z0-9]/gi, '-') : 'script'
+      downloadAsFile(data.content, filename, format)
+      setExportStatus(`✓ Downloaded ${format} content!`)
+    } catch (error: any) {
+      console.error('Export error:', error)
+      setExportStatus(`Failed: ${error.message}`)
+    } finally {
+      setIsGeneratingExport(false)
+      setTimeout(() => setExportStatus(null), 5000)
+      setShowExportMenu(false)
+    }
+  }
+
   const calculateScriptMetadata = (script: string) => {
     const wordCount = script.trim().split(/\s+/).length
     const estimatedMinutes = Math.round(wordCount / 150)
@@ -106,7 +207,12 @@ export function ScriptDisplay({
               </div>
             </CardDescription>
           </div>
-          <div className="flex flex-wrap gap-2 justify-end">
+          <div className="flex flex-wrap gap-2 justify-end items-start">
+            {exportStatus && (
+              <div className="text-sm text-green-600 font-medium px-3 py-1 bg-green-50 rounded">
+                {exportStatus}
+              </div>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -114,12 +220,52 @@ export function ScriptDisplay({
             >
               Copy Script
             </Button>
-            <Button variant="outline" size="sm" onClick={onDownloadScript}>
-              Download .txt
-            </Button>
-            <Button variant="outline" size="sm" onClick={onExportMarkdown}>
-              Export .md
-            </Button>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                disabled={isGeneratingExport}
+              >
+                {isGeneratingExport ? 'Generating...' : 'Export As... ▼'}
+              </Button>
+              {showExportMenu && !isGeneratingExport && (
+                <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div className="p-2">
+                    <div className="text-xs font-semibold text-gray-500 px-2 py-1">AI-GENERATED EXPORTS</div>
+                    <button
+                      onClick={() => handleExport('twitter')}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+                    >
+                      🐦 Twitter Thread (copy)
+                    </button>
+                    <button
+                      onClick={() => handleExport('blog')}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+                    >
+                      📝 Blog Post (copy)
+                    </button>
+                    <div className="border-t border-gray-200 my-2"></div>
+                    <button
+                      onClick={() => handleDownloadExport('twitter')}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+                    >
+                      💾 Download Twitter Thread
+                    </button>
+                    <button
+                      onClick={() => handleDownloadExport('blog')}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
+                    >
+                      💾 Download Blog Post
+                    </button>
+                    <div className="border-t border-gray-200 my-2"></div>
+                    <div className="text-xs text-gray-400 px-2 py-1 italic">
+                      Want LinkedIn/TikTok/etc? Let us know!
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             {scriptVersions.length > 1 && (
               <Button
                 variant="outline"

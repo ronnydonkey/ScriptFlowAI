@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (topic.length > 500) {
+    if (topic.length > 1000) {
       return NextResponse.json(
-        { error: "Topic is too long (max 500 characters)" },
+        { error: "Topic is too long (max 1000 characters)" },
         { status: 400 }
       );
     }

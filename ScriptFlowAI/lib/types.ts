@@ -64,3 +64,40 @@ export interface ScriptState {
   researchContext: ResearchResult;
   scriptOptions: ScriptOptions;
 }
+
+// Trend Engine Types
+export interface Trend {
+  id: string;
+  source: 'reddit' | 'youtube' | 'google_trends';
+  title: string;
+  url?: string;
+  description?: string;
+  rawData?: any;
+  engagementScore?: number;
+  detectedAt: Date;
+  keywords?: string[];
+}
+
+export interface TrendSuggestion {
+  id: string;
+  trend: Trend;
+  avatarName: string;
+  relevanceScore: number;
+  suggestedAngle: string;
+  whyRelevant: string;
+  userAction?: 'accepted' | 'rejected' | 'ignored';
+  suggestedAt: Date;
+  actionedAt?: Date;
+}
+
+export interface AvatarProfile {
+  name: string;
+  description: string;
+  interests: {
+    keywords: string[];
+    subreddits: string[];
+    topics: string[];
+  };
+  tone: string;
+  audienceLevel: 'beginner' | 'intermediate' | 'advanced';
+}
